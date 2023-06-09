@@ -12,15 +12,29 @@ nconf.argv().env().file({ file: 'config.json' });
 	const pathToDir = path.resolve(process.env.HOME as string);
 	bot.command('list', async (ctx) => {
 		const dirContent = await fs.promises.readdir(pathToDir, { encoding: 'utf-8', withFileTypes: true });
-		const certificates = dirContent.filter((dirName) => dirName.name.endsWith('.ovpn')).map((dirName) => dirName.name);
-		ctx.reply(certificates.join('\n'));
+		const certificates = dirContent.filter((dirName) => dirName.name.endsWith('.ovpn'))
+			.map((dirName) => dirName.name);
+		ctx.telegram.sendMessage(ctx.from.id, 'Share:', {
+			reply_markup: {
+				inline_keyboard: [
+					[{
+						text: 'Share with your friends',
+						switch_inline_query: 'share',
+					}],
+					[{
+						text: 'Share with your friends',
+						switch_inline_query: 'share',
+					}],
+				],
+			},
+		})
 	});
 
 	bot.command('get', async (ctx) => {
 		const [, filename] = ctx.message.text.split(' ');
 
 		if (!filename?.length) {
-			ctx.reply(`Invalid filename: "${filename}"`);
+			ctx.reply(`Invalid filename: "${ filename }"`);
 			return;
 		}
 
@@ -43,4 +57,8 @@ nconf.argv().env().file({ file: 'config.json' });
 		},
 	});
 	console.log('Bot started');
+
+	// Enable graceful stop
+	process.once('SIGINT', () => bot.stop('SIGINT'))
+	process.once('SIGTERM', () => bot.stop('SIGTERM'))
 })();
