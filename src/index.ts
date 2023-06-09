@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { Telegraf } from 'telegraf';
+import { Telegraf, Context, Markup } from 'telegraf';
 import nconf from 'nconf';
 
 nconf.argv().env().file({ file: 'config.json' });
@@ -10,25 +10,21 @@ nconf.argv().env().file({ file: 'config.json' });
 	const bot = new Telegraf(nconf.get('TELEGRAM_API_KEY'));
 
 	const pathToDir = path.resolve(process.env.HOME as string);
-	bot.command('list', async (ctx) => {
+	bot.command('list', async (ctx: Context) => {
 		const dirContent = await fs.promises.readdir(pathToDir, { encoding: 'utf-8', withFileTypes: true });
 		const certificates = dirContent.filter((dirName) => dirName.name.endsWith('.ovpn'))
 			.map((dirName) => dirName.name);
-		ctx.telegram.sendMessage(ctx.from.id, 'Share:', {
-			reply_markup: {
-				inline_keyboard: [
-					[{
-						text: 'Share with your friends',
-						switch_inline_query: 'share',
-					}],
-					[{
-						text: 'Share with your friends',
-						switch_inline_query: 'share',
-					}],
-				],
-			},
-		})
+
+		await ctx.reply('Existed sertificates:', Markup.inlineKeyboard(
+			certificates.map(certificate => [Markup.button.callback(certificate, certificate)])
+		));
 	});
+
+	bot.action(/.\.ovpn/g, (ctx: Context) => {
+		if ('callback_query' in ctx.update) {
+			console.log(ctx.update.callback_query)
+		}
+	})
 
 	bot.command('get', async (ctx) => {
 		const [, filename] = ctx.message.text.split(' ');
