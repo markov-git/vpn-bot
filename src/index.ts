@@ -18,6 +18,12 @@ nconf.argv().env().file({ file: 'config.json' });
 
 	bot.command('get', async (ctx) => {
 		const [, filename] = ctx.message.text.split(' ');
+
+		if (!filename?.length) {
+			ctx.reply(`Invalid filename: "${filename}"`);
+			return;
+		}
+
 		const pathToFile = path.resolve(pathToDir, filename);
 		if (!fs.existsSync(pathToFile)) {
 			ctx.reply('Not found :(');
