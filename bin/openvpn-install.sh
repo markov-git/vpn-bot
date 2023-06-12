@@ -40,7 +40,7 @@ elif [[ -e /etc/fedora-release ]]; then
 	group_name="nobody"
 else
 	echo "This installer seems to be running on an unsupported distribution.
-Supported distros are Ubuntu, Debian, AlmaLinux, Rocky Linux, CentOS and Fedora."
+Supported distros are Ubuntu, Debian, AlmaLinux, Rocky Linux, CentOS and Fedora." >&2
 	exit
 fi
 
@@ -166,10 +166,10 @@ if [[ ! -e /etc/openvpn/server/server.conf ]]; then
 		read -p "Protocol [1]: " protocol
 	done
 	case "$protocol" in
-		1|"") 
+		1|"")
 		protocol=udp
 		;;
-		2) 
+		2)
 		protocol=tcp
 		;;
 	esac
@@ -437,6 +437,9 @@ verb 3" > /etc/openvpn/server/client-common.txt
 	echo "New clients can be added by running this script again."
 else
 	clear
+	if [[ $1 ]]; then
+    option=$1
+  fi
 	echo "OpenVPN is already installed."
 	echo
 	echo "Select an option:"

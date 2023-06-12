@@ -3,6 +3,8 @@ import * as path from 'path';
 
 import { Telegraf, Context, Markup } from 'telegraf';
 import nconf from 'nconf';
+import { type CallbackQuery } from 'typegram/markup';
+import { promisedExec, textToZeroWidth } from './utils';
 
 nconf.argv().env().file({ file: 'config.json' });
 
@@ -10,27 +12,23 @@ nconf.argv().env().file({ file: 'config.json' });
 	const bot = new Telegraf(nconf.get('TELEGRAM_API_KEY'));
 
 	const pathToDir = path.resolve(process.env.HOME as string);
+
 	bot.command('list', async (ctx: Context) => {
 		const dirContent = await fs.promises.readdir(pathToDir, { encoding: 'utf-8', withFileTypes: true });
-		const certificates = dirContent.filter((dirName) => dirName.name.endsWith('.ovpn'))
-			.map((dirName) => dirName.name);
+		const certificates = dirContent.filter((dirName) => dirName.name.endsWith('.ovpn')).map((dirName) => dirName.name);
 
-		await ctx.reply('Existed sertificates:', Markup.inlineKeyboard(
-			certificates.map(certificate => [Markup.button.callback(certificate, certificate)])
-		));
+		await ctx.reply(
+			'Existed sertificates:',
+			Markup.inlineKeyboard(certificates.map((certificate) => [Markup.button.callback(certificate, certificate)])),
+		);
 	});
 
 	bot.action(/.\.ovpn/g, (ctx: Context) => {
-		if ('callback_query' in ctx.update) {
-			console.log(ctx.update.callback_query)
-		}
-	})
+		const callbackQuery = ctx.callbackQuery as CallbackQuery.DataQuery;
 
-	bot.command('get', async (ctx) => {
-		const [, filename] = ctx.message.text.split(' ');
-
-		if (!filename?.length) {
-			ctx.reply(`Invalid filename: "${ filename }"`);
+		const filename = callbackQuery.data;
+		if (!filename.length) {
+			ctx.reply(`Invalid filename: "${filename}"`);
 			return;
 		}
 
@@ -40,10 +38,33 @@ nconf.argv().env().file({ file: 'config.json' });
 			return;
 		}
 
-		ctx.telegram.sendDocument(ctx.from.id, {
+		ctx.telegram.sendDocument((ctx.from as any).id, {
 			source: pathToFile,
 			filename,
 		});
+	});
+
+	bot.command('create', async (ctx: Context) => {
+		const userState = textToZeroWidth(
+			JSON.stringify({
+				step: 'waitForName',
+			}),
+		);
+		await ctx.reply('Введите имя для нового vpn пользователя' + userState);
+	});
+
+	bot.on('message', async (ctx: Context) => {
+		// todo: state machine
+		const command = nconf.get('PATH_TO_VPN_SCRIPT');
+		const name = (ctx.message as any).text;
+		if (!name) return;
+		const { stderr } = await promisedExec(`sudo bash ${command} "1" ${name}`);
+
+		if (stderr.length) {
+			await ctx.reply('Ошибка при создании сертификата :(\n' + stderr);
+		} else {
+			await ctx.reply(`Сертификат с именем ${name} успешно создан`);
+		}
 	});
 
 	await bot.launch({
@@ -55,6 +76,6 @@ nconf.argv().env().file({ file: 'config.json' });
 	console.log('Bot started');
 
 	// Enable graceful stop
-	process.once('SIGINT', () => bot.stop('SIGINT'))
-	process.once('SIGTERM', () => bot.stop('SIGTERM'))
+	process.once('SIGINT', () => bot.stop('SIGINT'));
+	process.once('SIGTERM', () => bot.stop('SIGTERM'));
 })();
